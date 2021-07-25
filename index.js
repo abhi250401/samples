@@ -1,53 +1,77 @@
-let constraintObj = {
-    audio: true,
-    video: {
-        facingMode: "user",
+var myState = {
+    pdf: null,
+    currentPage: 1,
+    zoom: 1
+}
 
-    }
-};
+pdfjsLib.getDocument('./1.pdf').then((pdf) => {
 
+    myState.pdf = pdf;
+    render();
 
+});
 
-navigator.mediaDevices.getUserMedia(constraintObj)
-    .then(function (mediaStreamObj) {
-        let video = document.querySelector('video');
-        if ("srcObject" in video) {
-            video.srcObject = mediaStreamObj;
-        }
+function render() {
+    myState.pdf.getPage(myState.currentPage).then((page) => {
 
+        var canvas = document.getElementById("pdf_renderer");
+        var ctx = canvas.getContext('2d');
 
+        var viewport = page.getViewport(myState.zoom);
 
-        video.onloadedmetadata = function (ev) {
-            video.play();
-        };
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
 
-
-        let start = document.getElementById('btn');
-        let stop = document.getElementById('btn2');
-        let vidSave = document.getElementById('vid2');
-        let mediaRecorder = new MediaRecorder(mediaStreamObj);
-
-        let chunks = [];
-
-        start.addEventListener('click', (ev) => {
-            mediaRecorder.start();
-            console.log(mediaRecorder.state);
-        })
-        stop.addEventListener('click', (ev) => {
-            mediaRecorder.stop();
-            console.log(mediaRecorder.state);
-        })
-
-        mediaRecorder.ondataavailable = function (ev) {
-            chunks.push(ev.data);
-        }
-        mediaRecorder.onstop = (ev) => {
-            let blob = new Blob(chunks, { 'type': 'video/mp4' });
-            chunks = [];
-            let videoURL = window.URL.createObjectURL(blob);
-            vidSave.src = videoURL;
-        }
-    })
-    .catch(function (err) {
-        console.log(err.name, err.message);
+        page.render({
+            canvasContext: ctx,
+            viewport: viewport
+        });
     });
+}
+
+document.getElementById('go_previous').addEventListener('click', (e) => {
+    if (myState.pdf == null || myState.currentPage == 1)
+        return;
+    myState.currentPage -= 1;
+    document.getElementById("current_page").value = myState.currentPage;
+    render();
+});
+
+document.getElementById('go_next').addEventListener('click', (e) => {
+    if (myState.pdf == null || myState.currentPage > myState.pdf._pdfInfo.numPages)
+        return;
+    myState.currentPage += 1;
+    document.getElementById("current_page").value = myState.currentPage;
+    render();
+});
+
+document.getElementById('current_page').addEventListener('keypress', (e) => {
+    if (myState.pdf == null) return;
+
+    // Get key code
+    var code = (e.keyCode ? e.keyCode : e.which);
+
+    // If key code matches that of the Enter key
+    if (code == 13) {
+        var desiredPage =
+            document.getElementById('current_page').valueAsNumber;
+
+        if (desiredPage >= 1 && desiredPage <= myState.pdf._pdfInfo.numPages) {
+            myState.currentPage = desiredPage;
+            document.getElementById("current_page").value = desiredPage;
+            render();
+        }
+    }
+});
+
+document.getElementById('zoom_in').addEventListener('click', (e) => {
+    if (myState.pdf == null) return;
+    myState.zoom += 0.5;
+    render();
+});
+
+document.getElementById('zoom_out').addEventListener('click', (e) => {
+    if (myState.pdf == null) return;
+    myState.zoom -= 0.5;
+    render();
+});
